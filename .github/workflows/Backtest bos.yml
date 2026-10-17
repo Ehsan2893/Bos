@@ -1,63 +1,59 @@
-name: Strategy 6 Backtest
+name: Crypto Strategy Backtest
 
 on:
-  workflow_dispatch:
-    inputs:
-      symbol:
-        description: "Binance symbol, e.g. BTC/USDT or ETH/USDT"
-        required: true
-        default: "BTC/USDT"
-      timeframe:
-        description: "Execution timeframe"
-        type: choice
-        options:
-          - 5m
-          - 15m
-          - 1h
-        required: true
-        default: "5m"
-      days:
-        description: "History length in days"
-        required: true
-        default: "90"
+workflow_dispatch:
+push:
+branches:
+- main
+- master
 
 permissions:
-  contents: read
+contents: read
 
 jobs:
-  backtest:
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+backtest:
+runs-on: ubuntu-latest
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: "pip"
+steps:
+  - name: Checkout repository
+    uses: actions/checkout@v4
 
-      - name: Install dependencies
-        run: pip install -r requirements.txt
+  - name: Set up Python
+    uses: actions/setup-python@v5
+    with:
+      python-version: '3.11'
 
-      - name: Run backtest
-        env:
-          SYMBOL: ${{ inputs.symbol }}
-          TIMEFRAME: ${{ inputs.timeframe }}
-          DAYS: ${{ inputs.days }}
-          INITIAL_EQUITY: "1000"
-          RISK_PCT: "0.5"
-          RR: "2.0"
-          FEE_RATE: "0.001"
-          SLIPPAGE_RATE: "0.0005"
-        run: python strategy6_bos_liquidity.py
+  - name: Show repository files
+    run: |
+      echo "Current directory:"
+      pwd
+      echo "Repository files:"
+      ls -la
+      echo "Python files:"
+      find . -type f -name "*.py"
+      echo "Dependency files:"
+      find . -type f -name "requirements.txt" -o -name "pyproject.toml"
 
-      - name: Upload backtest results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: strategy6-backtest-results
-          path: results/
-          if-no-files-found: warn
-          retention-days: 30
+  - name: Install dependencies
+    run: |
+      python -m pip install --upgrade pip
+
+      if [ -f requirements.txt ]; then
+        python -m pip install -r requirements.txt
+      elif [ -f pyproject.toml ]; then
+        python -m pip install .
+      else
+        python -m pip install pandas numpy ccxt matplotlib pytest
+      fi
+
+  - name: Run Python backtest
+    run: |
+      set -e
+
+      if [ -f backtest.py ]; then
+        python backtest.py
+      else
+        echo "ERROR: backtest.py was not found in the repository root."
+        echo "Check the file list in the previous step."
+        exit 1
+      fi
